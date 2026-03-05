@@ -1,4 +1,5 @@
-import "@vibecodeapp/proxy"; // DO NOT REMOVE OTHERWISE VIBECODE PROXY WILL NOT WORK
+// Vibecode proxy - only active in Vibecode dev environment, safe to skip elsewhere
+await import("@vibecodeapp/proxy").catch(() => {});
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import "./env";
