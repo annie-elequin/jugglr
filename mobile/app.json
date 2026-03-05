@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "jugglr",
+    "slug": "jugglr",
+    "scheme": "jugglr",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "21f72c14-2e45-4d68-ad44-b1a7c20e1804"
+      }
+    },
+    "owner": "elequin-ventures"
+  }
+}
