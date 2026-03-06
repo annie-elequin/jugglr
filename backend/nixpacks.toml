@@ -2,7 +2,7 @@
 cmds = ["bun install"]
 
 [phases.build]
-cmds = ["bunx prisma generate"]
+cmds = ["bunx prisma generate", "bunx prisma db push"]
 
 [start]
-cmd = "bunx prisma db push && bun run src/index.ts"
+cmd = "bun run src/index.ts"
