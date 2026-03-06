@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,29 +10,51 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth/auth-client";
-import { Mail, ArrowRight } from "lucide-react-native";
+import { useInvalidateSession } from "@/lib/auth/use-session";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react-native";
 
 export default function SignIn() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const invalidateSession = useInvalidateSession();
 
-  const handleSendCode = async () => {
-    if (!email.trim()) return;
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) return;
+    if (mode === "signup" && !name.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await authClient.emailOtp.sendVerificationOtp({
-        email: email.trim().toLowerCase(),
-        type: "sign-in",
-      });
-      if (result.error) {
-        setError(result.error.message || "Failed to send code");
+      if (mode === "signin") {
+        const result = await authClient.signIn.email({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+        if (result.error) {
+          setError(result.error.message || "Invalid email or password");
+        } else {
+          invalidateSession();
+        }
       } else {
-        router.push({ pathname: "/verify-otp" as any, params: { email: email.trim().toLowerCase() } });
+        const result = await authClient.signUp.email({
+          email: email.trim().toLowerCase(),
+          password,
+          name: name.trim(),
+        });
+        if (result.error) {
+          setError(result.error.message || "Failed to create account");
+        } else {
+          invalidateSession();
+        }
       }
     } catch (e: any) {
       setError(e.message || "Something went wrong");
@@ -41,11 +63,12 @@ export default function SignIn() {
     }
   };
 
+  const isValid = email.trim() && password.trim() && (mode === "signin" || name.trim());
+
   return (
     <View style={s.container}>
       <LinearGradient colors={["#06060F", "#0A0A1A", "#0D0B1F"]} style={StyleSheet.absoluteFill} />
 
-      {/* Stars */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {Array.from({ length: 40 }).map((_, i) => (
           <View
@@ -70,24 +93,51 @@ export default function SignIn() {
           style={s.keyboardView}
         >
           <View style={s.content}>
-            {/* Logo area */}
             <View style={s.logoArea}>
               <Text style={s.title}>Jugglr</Text>
               <Text style={s.subtitle}>keep all your balls in the air</Text>
             </View>
 
-            {/* Card */}
             <View style={s.card}>
-              <LinearGradient
-                colors={["#12102A", "#0E0C22"]}
-                style={StyleSheet.absoluteFill}
-              />
-              <Text style={s.cardTitle}>Sign in</Text>
-              <Text style={s.cardSubtitle}>We'll send a code to your email</Text>
+              <LinearGradient colors={["#12102A", "#0E0C22"]} style={StyleSheet.absoluteFill} />
+
+              {/* Mode toggle */}
+              <View style={s.toggle}>
+                <Pressable
+                  onPress={() => { setMode("signin"); setError(null); }}
+                  style={[s.toggleBtn, mode === "signin" && s.toggleBtnActive]}
+                >
+                  <Text style={[s.toggleText, mode === "signin" && s.toggleTextActive]}>Sign in</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => { setMode("signup"); setError(null); }}
+                  style={[s.toggleBtn, mode === "signup" && s.toggleBtnActive]}
+                >
+                  <Text style={[s.toggleText, mode === "signup" && s.toggleTextActive]}>Create account</Text>
+                </Pressable>
+              </View>
+
+              {mode === "signup" && (
+                <View style={s.inputWrapper}>
+                  <User size={18} color="rgba(255,255,255,0.3)" style={s.inputIcon} />
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Your name"
+                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    style={s.input}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                    testID="name-input"
+                  />
+                </View>
+              )}
 
               <View style={s.inputWrapper}>
                 <Mail size={18} color="rgba(255,255,255,0.3)" style={s.inputIcon} />
                 <TextInput
+                  ref={emailRef}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="your@email.com"
@@ -96,30 +146,54 @@ export default function SignIn() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  returnKeyType="send"
-                  onSubmitEditing={handleSendCode}
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                   testID="email-input"
                 />
+              </View>
+
+              <View style={[s.inputWrapper, s.inputWrapperLast]}>
+                <Lock size={18} color="rgba(255,255,255,0.3)" style={s.inputIcon} />
+                <TextInput
+                  ref={passwordRef}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  style={s.input}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  returnKeyType="go"
+                  onSubmitEditing={handleSubmit}
+                  testID="password-input"
+                />
+                <Pressable onPress={() => setShowPassword(v => !v)} hitSlop={8}>
+                  {showPassword
+                    ? <EyeOff size={18} color="rgba(255,255,255,0.3)" />
+                    : <Eye size={18} color="rgba(255,255,255,0.3)" />}
+                </Pressable>
               </View>
 
               {error ? <Text style={s.error}>{error}</Text> : null}
 
               <Pressable
-                onPress={handleSendCode}
-                disabled={!email.trim() || loading}
-                style={({ pressed }) => [s.button, pressed && s.buttonPressed, (!email.trim() || loading) && s.buttonDisabled]}
-                testID="send-code-button"
+                onPress={handleSubmit}
+                disabled={!isValid || loading}
+                style={({ pressed }) => [s.button, pressed && s.buttonPressed, (!isValid || loading) && s.buttonDisabled]}
+                testID="submit-button"
               >
                 <LinearGradient
-                  colors={email.trim() && !loading ? ["#7C5CFC", "#5B6EF5"] : ["#2A2840", "#2A2840"]}
+                  colors={isValid && !loading ? ["#7C5CFC", "#5B6EF5"] : ["#2A2840", "#2A2840"]}
                   style={s.buttonGradient}
                 >
                   {loading ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
-                      <Text style={[s.buttonText, (!email.trim()) && s.buttonTextDisabled]}>Send code</Text>
-                      <ArrowRight size={18} color={email.trim() ? "#fff" : "rgba(255,255,255,0.3)"} />
+                      <Text style={[s.buttonText, !isValid && s.buttonTextDisabled]}>
+                        {mode === "signin" ? "Sign in" : "Create account"}
+                      </Text>
+                      <ArrowRight size={18} color={isValid ? "#fff" : "rgba(255,255,255,0.3)"} />
                     </>
                   )}
                 </LinearGradient>
@@ -162,17 +236,29 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
   },
-  cardTitle: {
-    fontFamily: "Syne_700Bold",
-    fontSize: 22,
-    color: "#fff",
-    marginBottom: 6,
+  toggle: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
   },
-  cardSubtitle: {
-    fontFamily: "DMSans_400Regular",
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 9,
+  },
+  toggleBtnActive: {
+    backgroundColor: "rgba(124,92,252,0.3)",
+  },
+  toggleText: {
+    fontFamily: "DMSans_500Medium",
     fontSize: 14,
     color: "rgba(255,255,255,0.4)",
-    marginBottom: 24,
+  },
+  toggleTextActive: {
+    color: "#fff",
   },
   inputWrapper: {
     flexDirection: "row",
@@ -184,6 +270,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
+  inputWrapperLast: { marginBottom: 0 },
   inputIcon: { marginRight: 10 },
   input: {
     flex: 1,
@@ -196,13 +283,13 @@ const s = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 13,
     color: "#F87171",
-    marginBottom: 12,
-    marginTop: 4,
+    marginTop: 12,
+    marginBottom: 4,
   },
   button: {
     borderRadius: 14,
     overflow: "hidden",
-    marginTop: 12,
+    marginTop: 16,
   },
   buttonPressed: { opacity: 0.85 },
   buttonDisabled: { opacity: 0.6 },
