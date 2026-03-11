@@ -22,6 +22,7 @@ function RootLayoutNav() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="privacy" />
       <Stack.Protected guard={!!session?.user}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
